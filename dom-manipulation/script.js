@@ -18,30 +18,50 @@ function saveQuotesToLocalStorage() {
 }
 
 /* =====================================================
-   POST NEW QUOTE TO SERVER (MOCK)
+   FETCH QUOTES FROM SERVER
 ===================================================== */
-async function postQuoteToServer(quote) {
+async function fetchQuotesFromServer() {
   try {
-    const response = await fetch(SERVER_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        title: quote.text,
-        body: quote.category
-      })
-    });
+    const response = await fetch(SERVER_URL);
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch quotes from server");
+    }
+
     const data = await response.json();
-    console.log("Server posted:", data);
-    return data;
+
+    // Convert server posts to quote format
+    return data.slice(0, 5).map(post => ({
+      text: post.title,
+      category: "Server"
+    }));
   } catch (error) {
-    console.error("Failed to post quote:", error);
-    return null;
+    console.error("Server fetch error:", error);
+    return [];
   }
 }
 
 /* =====================================================
-   SYNC QUOTES FUNCTION
+   MERGE QUOTES (CONFLICT RESOLUTION: SERVER WINS)
 ===================================================== */
+function mergeQuotes(serverQuotes, localQuotes) {
+  const merged = [...serverQuotes];
+
+  localQuotes.forEach(localQuote => {
+    const exists = serverQuotes.some(
+      serverQuote => serverQuote.text === localQuote.text
+    );
+
+    if (!exists) merged.push(localQuote);
+  });
+
+  return merged;
+}
+
+/* =====================================================
+   SERVER SYNC
+===================================================== */
+
 async function syncQuotes() {
   try {
     // 1️⃣ Fetch server quotes
@@ -85,6 +105,23 @@ async function syncQuotes() {
     console.error("Sync failed:", error);
     showSyncNotification("Error syncing quotes with server.");
   }
+}
+
+async function syncWithServer() {
+  const serverQuotes = await fetchQuotesFromServer();
+  const localQuotes = JSON.parse(localStorage.getItem("quotes")) || [];
+
+  quotes = mergeQuotes(serverQuotes, localQuotes);
+  saveQuotesToLocalStorage();
+  populateCategories();
+  filterQuotes();
+
+  showSyncNotification("Quotes synced with server (server data took precedence)");
+}
+
+// Manual sync button
+function manualSync() {
+  syncWithServer();
 }
 
 /* =====================================================
@@ -142,26 +179,75 @@ function createAddQuoteForm() {
 
   form.append(textInput, categoryInput, submitBtn);
 
-  form.addEventListener("submit", async (e) => {
+  form.addEventListener("submit", (e) => {
     e.preventDefault();
-
-    const newQuote = { text: textInput.value, category: categoryInput.value };
-
-    // Add locally
-    quotes.push(newQuote);
-    saveQuotesToLocalStorage();
-    populateCategories();
-    filterQuotes();
-
-    // Post to server
-    await postQuoteToServer(newQuote);
-
+    addQuote(textInput.value, categoryInput.value);
     textInput.value = "";
     categoryInput.value = "";
   });
 
   container.appendChild(form);
 }
+
+async function addQuote(text, category) {
+  const newQuote = { text, category };
+
+  // Add locally
+  quotes.push(newQuote);
+  saveQuotesToLocalStorage();
+  populateCategories();
+  filterQuotes();
+
+  // Post to server
+  await postQuoteToServer(newQuote);
+}
+
+async function postQuoteToServer(quote) {
+  try {
+    const response = await fetch("https://jsonplaceholder.typicode.com/posts", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        title: quote.text,
+        body: quote.category
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to post quote to server");
+    }
+
+    const data = await response.json();
+    console.log("Server response:", data);
+    showSyncNotification("Quote posted to server successfully!");
+
+    return data;
+  } catch (error) {
+    console.error("Error posting quote:", error);
+    showSyncNotification("Failed to post quote to server.");
+    return null;
+  }
+}
+async function addQuote(text, category) {
+  const newQuote = { text, category };
+  quotes.push(newQuote);
+  saveQuotes();
+  populateCategories();
+  filterQuotes();
+  await postQuoteToServer(newQuote);
+}
+
+async function addQuoteFromStaticInputs() {
+  const textInput = document.getElementById("newQuoteText");
+  const catInput = document.getElementById("newQuoteCategory");
+  if (!textInput.value || !catInput.value) return alert("Fill both fields!");
+  await addQuote(textInput.value, catInput.value);
+  textInput.value = "";
+  catInput.value = "";
+}
+
 
 /* =====================================================
    CATEGORY FILTERING
@@ -262,7 +348,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("importFile")
     ?.addEventListener("change", importFromJsonFile);
 
-  setInterval(syncQuotes, SYNC_INTERVAL);
+  setInterval(syncWithServer, SYNC_INTERVAL);
 
   // Restore last viewed quote from session
   const lastQuote = sessionStorage.getItem("lastQuote");
