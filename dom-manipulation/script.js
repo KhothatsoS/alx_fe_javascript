@@ -1,3 +1,21 @@
+const SERVER_URL = "https://jsonplaceholder.typicode.com/posts";
+const SYNC_INTERVAL = 15000; // 15 seconds
+
+{
+  text: post.title,
+  category: "Server"
+}
+
+async function fetchServerQuotes() {
+  const response = await fetch(SERVER_URL);
+  const data = await response.json();
+
+  return data.slice(0, 5).map(post => ({
+    text: post.title,
+    category: "Server"
+  }));
+}
+
 /* ================================
    DATA & STORAGE HELPERS
 ================================ */
@@ -12,6 +30,52 @@ let quotes = JSON.parse(localStorage.getItem("quotes")) || [
 function saveQuotesToLocalStorage() {
   localStorage.setItem("quotes", JSON.stringify(quotes));
 }
+
+async function syncWithServer() {
+  const serverQuotes = await fetchServerQuotes();
+  const localQuotes = JSON.parse(localStorage.getItem("quotes")) || [];
+
+  const mergedQuotes = mergeQuotes(serverQuotes, localQuotes);
+
+  localStorage.setItem("quotes", JSON.stringify(mergedQuotes));
+  quotes = mergedQuotes;
+
+  showSyncNotification("Quotes synced with server");
+}
+
+function mergeQuotes(serverQuotes, localQuotes) {
+  const combined = [...serverQuotes];
+
+  localQuotes.forEach(localQuote => {
+    const existsOnServer = serverQuotes.some(
+      serverQuote => serverQuote.text === localQuote.text
+    );
+
+    if (!existsOnServer) {
+      combined.push(localQuote);
+    }
+  });
+
+  return combined;
+}
+
+function showSyncNotification(message) {
+  const notification = document.getElementById("sync-notification");
+  notification.textContent = message;
+  notification.style.display = "block";
+
+  setTimeout(() => {
+    notification.style.display = "none";
+  }, 3000);
+}
+function manualSync() {
+  syncWithServer();
+  alert("Manual sync completed. Server data took precedence.");
+}
+setInterval(syncWithServer, SYNC_INTERVAL);
+document.addEventListener("DOMContentLoaded", () => {
+  setInterval(syncWithServer, SYNC_INTERVAL);
+});
 
 /* ================================
    DISPLAY RANDOM QUOTE

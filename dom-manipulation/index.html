@@ -15,6 +15,9 @@
 <input type="file" id="importFile" accept=".json" onchange="importFromJsonFile(event)" />
 
 <div id="form-container"></div>
+<div id="sync-notification" style="display:none;"></div>
+<button onclick="manualSync()">Sync Now</button>
+
 
     <input id="newQuoteText" type="text" placeholder="Enter a new quote" />
     <input id="newQuoteCategory" type="text" placeholder="Enter quote category" />
