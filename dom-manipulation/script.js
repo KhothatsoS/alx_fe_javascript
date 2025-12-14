@@ -18,64 +18,73 @@ function saveQuotesToLocalStorage() {
 }
 
 /* =====================================================
-   FETCH QUOTES FROM SERVER
+   POST NEW QUOTE TO SERVER (MOCK)
 ===================================================== */
-async function fetchQuotesFromServer() {
+async function postQuoteToServer(quote) {
   try {
-    const response = await fetch(SERVER_URL);
-
-    if (!response.ok) {
-      throw new Error("Failed to fetch quotes from server");
-    }
-
+    const response = await fetch(SERVER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: quote.text,
+        body: quote.category
+      })
+    });
     const data = await response.json();
-
-    // Convert server posts to quote format
-    return data.slice(0, 5).map(post => ({
-      text: post.title,
-      category: "Server"
-    }));
+    console.log("Server posted:", data);
+    return data;
   } catch (error) {
-    console.error("Server fetch error:", error);
-    return [];
+    console.error("Failed to post quote:", error);
+    return null;
   }
 }
 
 /* =====================================================
-   MERGE QUOTES (CONFLICT RESOLUTION: SERVER WINS)
+   SYNC QUOTES FUNCTION
 ===================================================== */
-function mergeQuotes(serverQuotes, localQuotes) {
-  const merged = [...serverQuotes];
+async function syncQuotes() {
+  try {
+    // 1️⃣ Fetch server quotes
+    const response = await fetch(SERVER_URL);
+    const serverData = await response.json();
+    const serverQuotes = serverData.slice(0, 5).map(post => ({
+      text: post.title,
+      category: "Server"
+    }));
 
-  localQuotes.forEach(localQuote => {
-    const exists = serverQuotes.some(
-      serverQuote => serverQuote.text === localQuote.text
-    );
+    // 2️⃣ Merge server + local quotes (server wins)
+    const localQuotes = JSON.parse(localStorage.getItem("quotes")) || [];
+    const mergedQuotes = [...serverQuotes];
 
-    if (!exists) merged.push(localQuote);
-  });
+    localQuotes.forEach(localQuote => {
+      const existsOnServer = serverQuotes.some(
+        serverQuote => serverQuote.text === localQuote.text
+      );
+      if (!existsOnServer) mergedQuotes.push(localQuote);
+    });
 
-  return merged;
-}
+    // 3️⃣ Save merged quotes locally
+    quotes = mergedQuotes;
+    saveQuotesToLocalStorage();
+    populateCategories();
+    filterQuotes();
 
-/* =====================================================
-   SERVER SYNC
-===================================================== */
-async function syncWithServer() {
-  const serverQuotes = await fetchQuotesFromServer();
-  const localQuotes = JSON.parse(localStorage.getItem("quotes")) || [];
+    // 4️⃣ Post local-only quotes to server
+    for (const localQuote of localQuotes) {
+      const existsOnServer = serverQuotes.some(
+        serverQuote => serverQuote.text === localQuote.text
+      );
+      if (!existsOnServer) {
+        await postQuoteToServer(localQuote);
+      }
+    }
 
-  quotes = mergeQuotes(serverQuotes, localQuotes);
-  saveQuotesToLocalStorage();
-  populateCategories();
-  filterQuotes();
-
-  showSyncNotification("Quotes synced with server (server data took precedence)");
-}
-
-// Manual sync button
-function manualSync() {
-  syncWithServer();
+    // 5️⃣ Notify user
+    showSyncNotification("Quotes synced with server successfully!");
+  } catch (error) {
+    console.error("Sync failed:", error);
+    showSyncNotification("Error syncing quotes with server.");
+  }
 }
 
 /* =====================================================
@@ -133,21 +142,25 @@ function createAddQuoteForm() {
 
   form.append(textInput, categoryInput, submitBtn);
 
-  form.addEventListener("submit", (e) => {
+  form.addEventListener("submit", async (e) => {
     e.preventDefault();
-    addQuote(textInput.value, categoryInput.value);
+
+    const newQuote = { text: textInput.value, category: categoryInput.value };
+
+    // Add locally
+    quotes.push(newQuote);
+    saveQuotesToLocalStorage();
+    populateCategories();
+    filterQuotes();
+
+    // Post to server
+    await postQuoteToServer(newQuote);
+
     textInput.value = "";
     categoryInput.value = "";
   });
 
   container.appendChild(form);
-}
-
-function addQuote(text, category) {
-  quotes.push({ text, category });
-  saveQuotesToLocalStorage();
-  populateCategories();
-  filterQuotes();
 }
 
 /* =====================================================
@@ -249,7 +262,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("importFile")
     ?.addEventListener("change", importFromJsonFile);
 
-  setInterval(syncWithServer, SYNC_INTERVAL);
+  setInterval(syncQuotes, SYNC_INTERVAL);
 
   // Restore last viewed quote from session
   const lastQuote = sessionStorage.getItem("lastQuote");
