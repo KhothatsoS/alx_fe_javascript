@@ -100,7 +100,7 @@ async function syncQuotes() {
     }
 
     // 5️⃣ Notify user
-    showSyncNotification("Quotes synced with server successfully!");
+    showSyncNotification("Quotes synced with server!");
   } catch (error) {
     console.error("Sync failed:", error);
     showSyncNotification("Error syncing quotes with server.");
