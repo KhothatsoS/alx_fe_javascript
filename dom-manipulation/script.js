@@ -77,6 +77,56 @@ function createAddQuoteForm() {
   container.appendChild(form);
 }
 
+function populateCategories() {
+  const select = document.getElementById("categoryFilter");
+
+  // Reset dropdown
+  select.innerHTML = '<option value="all">All Categories</option>';
+
+  const categories = [...new Set(quotes.map(q => q.category))];
+
+  categories.forEach(category => {
+    const option = document.createElement("option");
+    option.value = category;
+    option.textContent = category;
+    select.appendChild(option);
+  });
+
+  // Restore last selected filter
+  const savedFilter = localStorage.getItem("selectedCategory");
+  if (savedFilter) {
+    select.value = savedFilter;
+  }
+}
+populateCategories();
+
+document.getElementById("categoryFilter").addEventListener("change", (e) => {
+  const selectedCategory = e.target.value;
+  localStorage.setItem("selectedCategory", selectedCategory);
+});
+
+function filterQuotes() {
+  const selectedCategory = document.getElementById("categoryFilter").value;
+  const quoteDisplay = document.getElementById("quote-display");
+
+  quoteDisplay.innerHTML = "";
+
+  const filteredQuotes =
+    selectedCategory === "all"
+      ? quotes
+      : quotes.filter(q => q.category === selectedCategory);
+
+  filteredQuotes.forEach(quote => {
+    const p = document.createElement("p");
+    p.textContent = `"${quote.text}" (${quote.category})`;
+    quoteDisplay.appendChild(p);
+  });
+
+  // Save filter preference
+  localStorage.setItem("selectedCategory", selectedCategory);
+}
+document.getElementById("filter-btn").addEventListener("click", filterQuotes);
+
 /* ================================
    JSON EXPORT
 ================================ */
