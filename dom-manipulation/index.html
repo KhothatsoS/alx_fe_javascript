@@ -7,27 +7,29 @@
   </head>
   <body>
     <h1>Dynamic Quote Generator</h1>
+
+    <!-- Quote Display -->
     <div id="quote-display"></div>
 
-<button id="random-quote-btn">Show Random Quote</button>
-<button id="export-btn">Export Quotes (JSON)</button>
+    <!-- Buttons -->
+    <button id="random-quote-btn">Show Random Quote</button>
+    <button id="export-btn">Export Quotes (JSON)</button>
+    <button onclick="manualSync()">Sync Now</button>
 
-<input type="file" id="importFile" accept=".json" onchange="importFromJsonFile(event)" />
+    <!-- Import JSON -->
+    <input type="file" id="importFile" accept=".json" />
 
-<div id="form-container"></div>
-<div id="sync-notification" style="display:none;"></div>
-<button onclick="manualSync()">Sync Now</button>
+    <!-- Dynamic Add Quote Form -->
+    <div id="form-container"></div>
 
+    <!-- Category Filter -->
+    <label for="categoryFilter">Filter by category:</label>
+    <select id="categoryFilter"></select>
 
-    <input id="newQuoteText" type="text" placeholder="Enter a new quote" />
-    <input id="newQuoteCategory" type="text" placeholder="Enter quote category" />
-    <button onclick="addQuote()">Add Quote</button>
-   </div>
+    <!-- Sync Notification -->
+    <div id="sync-notification" style="display:none;"></div>
 
-   <label for="categoryFilter">Filter by category:</label>
-   <select id="categoryFilter" onchange="filterQuotes()">
-  <option value="all">All Categories</option>
-  </select>
+    <!-- Script -->
     <script src="script.js"></script>
   </body>
 </html>
